@@ -1,5 +1,6 @@
 library(shiny)
 library(bslib)
+options(shiny.maxRequestSize = 200 * 1024^2)  # allow uploads up to 200 MB
 library(ggplot2)
 library(DT)
 library(tidyr)
