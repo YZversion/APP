@@ -6,6 +6,7 @@ library(tidyr)
 library(pheatmap)
 library(RColorBrewer)
 library(ggbeeswarm)
+library(colourpicker)
 
 # ── Pure helpers (no Shiny context — testable standalone) ──────────────────────
 
@@ -122,6 +123,90 @@ cap_heatmap_genes <- function(mat_pass, n_max = 500) {
   mat_pass[top_idx, , drop = FALSE]
 }
 
+# --- tab3 helpers (also used by tests) ---------------------------------------
+
+# Filters a DE data frame to rows whose gene_symbol contains gene_search.
+# Empty or whitespace-only search returns the full data frame unchanged.
+filter_de_table <- function(de_df, gene_search = "") {
+  gene_search <- trimws(gene_search)
+  if (!nzchar(gene_search)) return(de_df)
+  de_df[grepl(gene_search, de_df$gene_symbol, ignore.case = TRUE), ]
+}
+
+# Builds a volcano ggplot from a DE data frame using the .data[[col]] pattern.
+# Points where neg_log10_padj > padj_thresh are colored with highlight_col;
+# all other points use base_col.
+make_volcano <- function(de_df, x_col, y_col, base_col, highlight_col, padj_thresh) {
+  de_df$highlighted <- de_df$neg_log10_padj > padj_thresh
+  ggplot(de_df, aes(x = .data[[x_col]], y = .data[[y_col]],
+                    color = highlighted)) +
+    geom_point(alpha = 0.5, size = 1.2) +
+    scale_color_manual(
+      values = c("FALSE" = base_col, "TRUE" = highlight_col),
+      name   = paste0("-log10(padj) > ", padj_thresh)
+    ) +
+    labs(x = x_col, y = y_col,
+         title = paste("Volcano Plot:", x_col, "vs", y_col)) +
+    theme_bw() +
+    guides(color = guide_legend(override.aes = list(size = 3, alpha = 1)))
+}
+
+# --- tab4 helpers (also used by tests) ---------------------------------------
+
+# Extracts one gene's row from a counts matrix (rownames = gene symbols).
+# Returns a named numeric vector; names are sample IDs (column names of the matrix).
+# Stops with a clear message if the gene symbol is not present.
+get_gene_counts <- function(counts_mat, gene_symbol) {
+  if (!(gene_symbol %in% rownames(counts_mat))) {
+    stop(paste0("Gene '", gene_symbol, "' not found in the counts matrix."))
+  }
+  counts_mat[gene_symbol, ]
+}
+
+# Joins a named count vector (names = sample IDs) to sample_df and returns a
+# tidy data frame with columns: sample_id, normalized_count, and group_col.
+pivot_gene_to_long <- function(count_vec, sample_df, group_col) {
+  long_df <- data.frame(
+    sample_id        = names(count_vec),
+    normalized_count = as.numeric(count_vec),
+    stringsAsFactors = FALSE
+  )
+  meta <- sample_df[, c("sample_id", group_col), drop = FALSE]
+  merge(long_df, meta, by = "sample_id", all.x = TRUE)
+}
+
+# Builds a ggplot for one gene's expression split by group_col.
+# Dispatches on plot_type: "box" | "violin" | "bar" | "beeswarm"
+make_gene_plot <- function(long_df, gene_name, group_col, plot_type) {
+  p <- switch(plot_type,
+    box = ggplot(long_df, aes(x = .data[[group_col]], y = normalized_count,
+                              fill = .data[[group_col]])) +
+          geom_boxplot(alpha = 0.7, outlier.shape = 16),
+
+    violin = ggplot(long_df, aes(x = .data[[group_col]], y = normalized_count,
+                                 fill = .data[[group_col]])) +
+             geom_violin(trim = FALSE, alpha = 0.7) +
+             geom_jitter(width = 0.15, size = 1.2, alpha = 0.5),
+
+    bar = ggplot(long_df, aes(x = .data[[group_col]], y = normalized_count,
+                              fill = .data[[group_col]])) +
+          stat_summary(fun = mean, geom = "bar", alpha = 0.8) +
+          stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2),
+
+    beeswarm = ggplot(long_df, aes(x = .data[[group_col]], y = normalized_count,
+                                   color = .data[[group_col]])) +
+               geom_beeswarm(size = 2, alpha = 0.8, cex = 2)
+  )
+  p +
+    labs(
+      x     = group_col,
+      y     = "Normalized Count",
+      title = paste("Expression of", gene_name, "by", group_col)
+    ) +
+    theme_bw() +
+    theme(legend.position = "none")
+}
+
 # ── UI ────────────────────────────────────────────────────────────────────────
 ui <- navbarPage(
   title = "HD RNA-seq Explorer",
@@ -233,19 +318,85 @@ ui <- navbarPage(
     )
   ),
 
-  # ── Tab 3 ──────────────────────────────────────────────────────────────────
+  # ── Tab 3: Differential Expression ────────────────────────────────────────
   tabPanel(
     "Differential Expression",
-    fluidPage(
-      textOutput("placeholder_tab3")
+    sidebarLayout(
+      sidebarPanel(
+        fileInput("tab3_file", "Upload differential_expression.csv",
+                  accept = ".csv",
+                  placeholder = "No file selected"),
+        helpText("Upload the pre-computed DESeq2 differential expression results (HD vs Control)."),
+        hr(),
+        h5("Volcano Plot Controls"),
+        radioButtons("tab3_x_col", "X-axis column:",
+                     choices = c("log2FoldChange", "baseMean", "lfcSE",
+                                 "stat", "pvalue", "padj"),
+                     selected = "log2FoldChange"),
+        radioButtons("tab3_y_col", "Y-axis column:",
+                     choices = c("neg_log10_padj", "pvalue", "padj",
+                                 "stat", "baseMean", "log2FoldChange"),
+                     selected = "neg_log10_padj"),
+        colourInput("tab3_base_col", "Base point color:", value = "#999999"),
+        colourInput("tab3_highlight_col", "Highlighted point color:", value = "#d7191c"),
+        sliderInput("tab3_padj_thresh",
+                    "Highlight threshold (−log₁₀ padj ≥):",
+                    min = 0, max = 300, value = 60, step = 1),
+        helpText("Points where −log₁₀(padj) exceeds this value are drawn in the highlight color."),
+        actionButton("tab3_plot_btn", "Update Volcano Plot", class = "btn-primary"),
+        hr(),
+        h5("Table Controls"),
+        textInput("tab3_gene_search", "Search gene symbol:",
+                  value = "", placeholder = "e.g. HTT, MAPT"),
+        helpText("Filters the table to rows whose gene symbol contains this string (case-insensitive).")
+      ),
+      mainPanel(
+        tabsetPanel(
+          tabPanel(
+            "Table",
+            br(),
+            DTOutput("tab3_dt")
+          ),
+          tabPanel(
+            "Volcano Plot",
+            br(),
+            plotOutput("tab3_volcano", height = "550px")
+          )
+        )
+      )
     )
   ),
 
-  # ── Tab 4 (choose-your-own — not yet decided) ──────────────────────────────
+  # ── Tab 4: Individual Gene Expression ─────────────────────────────────────
   tabPanel(
-    "Tab 4",
-    fluidPage(
-      textOutput("placeholder_tab4")
+    "Gene Expression",
+    sidebarLayout(
+      sidebarPanel(
+        fileInput("tab4_counts_file", "Upload Normalized Counts Matrix (CSV)",
+                  accept = ".csv",
+                  placeholder = "No file selected"),
+        helpText("Upload counts_wide.csv — columns 1–3 are gene metadata (stripped automatically); remaining columns are one sample each."),
+        fileInput("tab4_sample_file", "Upload Sample Information (CSV)",
+                  accept = ".csv",
+                  placeholder = "No file selected"),
+        helpText("Upload sample_info.csv to supply grouping metadata for the plot."),
+        hr(),
+        uiOutput("tab4_gene_ui"),
+        uiOutput("tab4_group_ui"),
+        radioButtons("tab4_plot_type", "Plot type:",
+                     choices = c("Boxplot"  = "box",
+                                 "Violin"   = "violin",
+                                 "Bar"      = "bar",
+                                 "Beeswarm" = "beeswarm"),
+                     selected = "violin"),
+        helpText("Choose how to display the distribution of normalized counts across sample groups."),
+        actionButton("tab4_plot_btn", "Plot", icon = icon("chart-bar"))
+      ),
+      mainPanel(
+        plotOutput("tab4_plot", height = "500px"),
+        br(),
+        DTOutput("tab4_gene_table")
+      )
     )
   )
 )
@@ -475,9 +626,98 @@ server <- function(input, output, session) {
     }
   })
 
-  # ── Tabs 3–4 placeholders ──────────────────────────────────────────────────
-  output$placeholder_tab3 <- renderText("Tab 3 — Differential Expression (not yet implemented)")
-  output$placeholder_tab4 <- renderText("Tab 4 — TBD (not yet implemented)")
+  # ── Tab 3 ──────────────────────────────────────────────────────────────────
+
+  tab3_data <- reactive({
+    load_csv(input$tab3_file)
+  })
+
+  output$tab3_dt <- renderDT({
+    df      <- tab3_data()
+    display <- filter_de_table(df, input$tab3_gene_search)
+    datatable(
+      display,
+      options = list(pageLength = 15, scrollX = TRUE),
+      filter  = "top"
+    )
+  })
+
+  output$tab3_volcano <- renderPlot({
+    # Re-render only when the button is clicked; isolate() prevents every
+    # radio/slider change from immediately triggering a re-plot.
+    input$tab3_plot_btn
+    isolate({
+      df <- tab3_data()
+      make_volcano(
+        de_df         = df,
+        x_col         = input$tab3_x_col,
+        y_col         = input$tab3_y_col,
+        base_col      = input$tab3_base_col,
+        highlight_col = input$tab3_highlight_col,
+        padj_thresh   = input$tab3_padj_thresh
+      )
+    })
+  })
+
+  # ── Tab 4 ──────────────────────────────────────────────────────────────────
+
+  # Load counts_wide.csv; strip gene metadata cols 1-3; store gene_symbol as rownames
+  tab4_counts <- reactive({
+    df  <- load_csv(input$tab4_counts_file)
+    mat <- as.matrix(df[, -(1:3)])
+    storage.mode(mat) <- "numeric"
+    rownames(mat) <- df$gene_symbol
+    mat
+  })
+
+  tab4_samples <- reactive({
+    load_csv(input$tab4_sample_file)
+  })
+
+  # Gene selector — searchable selectize, populated once the counts file loads
+  output$tab4_gene_ui <- renderUI({
+    mat   <- tab4_counts()
+    genes <- rownames(mat)
+    selectizeInput("tab4_gene", "Select gene:",
+                   choices  = genes,
+                   selected = genes[1],
+                   options  = list(placeholder = "Search gene symbol..."))
+  })
+
+  # Group selector — categorical cols from sample_info, defaulting to 'diagnosis'
+  output$tab4_group_ui <- renderUI({
+    df       <- tab4_samples()
+    cat_cols <- get_categorical_cols(df)
+    validate(need(length(cat_cols) > 0, "No categorical columns found in sample info."))
+    default_col <- if ("diagnosis" %in% cat_cols) "diagnosis" else cat_cols[1]
+    selectInput("tab4_group", "Group by:",
+                choices  = cat_cols,
+                selected = default_col)
+  })
+
+  # Subset to one gene row, pivot to long format, join sample metadata.
+  # req() ensures both file reactives and both UI-driven inputs are ready.
+  tab4_long <- reactive({
+    req(input$tab4_gene, input$tab4_group)
+    count_vec <- get_gene_counts(tab4_counts(), input$tab4_gene)
+    pivot_gene_to_long(count_vec, tab4_samples(), input$tab4_group)
+  })
+
+  # Plot re-renders only on button click; bindEvent holds rendering until clicked
+  output$tab4_plot <- renderPlot({
+    long_df <- tab4_long()
+    make_gene_plot(long_df, input$tab4_gene, input$tab4_group, input$tab4_plot_type)
+  }) |> bindEvent(input$tab4_plot_btn)
+
+  # Table updates reactively whenever gene or group selection changes
+  output$tab4_gene_table <- renderDT({
+    long_df <- tab4_long()
+    datatable(
+      long_df,
+      options = list(pageLength = 15, scrollX = TRUE),
+      filter  = "top"
+    )
+  })
 }
 
 shinyApp(ui, server)

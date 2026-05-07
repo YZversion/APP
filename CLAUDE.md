@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BF591 final project: an R Shiny app exploring post-mortem Huntington's Disease RNA-seq data (GSE64810). 69 samples total — 20 HD, 49 neurologically normal controls — from human BA9 prefrontal cortex. The app is **not yet built**; `app/` is empty. All preprocessing is complete.
+BF591 final project: an R Shiny app exploring post-mortem Huntington's Disease RNA-seq data (GSE64810). 69 samples total — 20 HD, 49 neurologically normal controls — from human BA9 prefrontal cortex. All four tabs are complete and in `app/app.R`. All preprocessing is complete.
 
 ## Data Pipeline Commands
 
@@ -54,12 +54,20 @@ Long-format pivot of counts_wide joined to sample_info. Columns: `gene_id`, `gen
 |---|---|---|
 | Tab 1 — Sample Information | **Complete** | `app/app.R` |
 | Tab 2 — Counts Exploration | **Complete** | `app/app.R` |
-| Tab 3 — Differential Expression | Placeholder only | `app/app.R` |
-| Tab 4 — Choose-your-own | Not decided | `app/app.R` |
+| Tab 3 — Differential Expression | **Complete** | `app/app.R` |
+| Tab 4 — Gene Expression | **Complete** | `app/app.R` |
 | Tests Tab 1 | **Complete** — 13 assertions | `tests/test_tab1.R` |
 | Tests Tab 2 | **Complete** — 30 assertions | `tests/test_tab2.R` |
+| Tests Tab 3 | **Complete** — 17 assertions | `tests/test_tab3.R` |
+| Tests Tab 4 | **Complete** — 21 assertions | `tests/test_tab4.R` |
 
-Run all tests: `testthat::test_file("tests/test_tab1.R")` and `testthat::test_file("tests/test_tab2.R")`
+Run all tests:
+```r
+testthat::test_file("tests/test_tab1.R")
+testthat::test_file("tests/test_tab2.R")
+testthat::test_file("tests/test_tab3.R")
+testthat::test_file("tests/test_tab4.R")
+```
 
 ## Planned Shiny App Architecture
 
@@ -74,15 +82,15 @@ Input: `counts_wide.csv`. Sliders: minimum variance percentile, minimum non-zero
 ### Tab 3 — Differential Expression
 Input: `differential_expression.csv`. Two sub-tabs: sortable `DT::datatable` with gene search, volcano plot (Assignment 7 style — x/y axis picker, color pickers, padj slider).
 
-### Tab 4 — TBD
-Not yet decided. Candidates: GSEA (fgsea), Individual Gene Expression Visualization, or Correlation Network Analysis.
+### Tab 4 — Individual Gene Expression Visualization
+Inputs: `counts_wide.csv` + `sample_info.csv`. User picks a gene (searchable selectize), a grouping column, and a plot type (boxplot/violin/bar/beeswarm). Plot renders on button click. Table shows the joined long-format counts for the selected gene.
 
 ## Key Implementation Notes
 
 - Each tab's file load is its own isolated `reactive({})` — tabs do not share loaded data.
 - PCA: `prcomp()` on the transposed filtered numeric matrix (samples as rows).
 - Heatmap: `pheatmap` package. Log-transform with `log2(x + 1)` before passing to pheatmap.
-- Required packages: `shiny`, `bslib`, `ggplot2`, `DT`, `pheatmap`, `colourpicker`, `dplyr`, `tidyr`.
+- Required packages: `shiny`, `bslib`, `ggplot2`, `DT`, `pheatmap`, `colourpicker`, `tidyr`, `RColorBrewer`, `ggbeeswarm`.
 - The example volcano plot in the project (Assignment 7 code by T. Falk) uses `ggplot2` with `.data[[col_name]]` for column selection — keep this pattern.
 
 ## Dataset Context
@@ -115,8 +123,8 @@ Not yet decided. Candidates: GSEA (fgsea), Individual Gene Expression Visualizat
 - Sub-tab: sortable table; optional gene name search to filter rows.
 - Sub-tab: volcano plot matching Assignment 6/7 style (x/y axis selector, color pickers, padj magnitude slider).
 
-### Tab 4 — Choose-your-own (one required, not yet decided)
-Candidates: GSEA with fgsea, Individual Gene Expression Visualization, Correlation Network Analysis. Update this section once the tab is chosen.
+### Tab 4 — Individual Gene Expression (chosen)
+Two file inputs (counts_wide.csv, sample_info.csv), searchable gene selectize, group-by selector, plot-type radio buttons, action button. Plot is button-bound (`bindEvent`). Table below updates reactively. Pure helpers: `get_gene_counts`, `pivot_gene_to_long`, `make_gene_plot`.
 
 ### Submission
 - Single integrated `app/app.R` (not four separate apps).
