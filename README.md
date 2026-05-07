@@ -61,7 +61,7 @@ This table maps the app implementation to the BF591 Final Project rubric.
 | Choose-your-own module | **Tab 4: Individual Gene Expression Visualization** | ✅ |
 | File validation | `.csv` extension check; row/column count check; inline `validate()` messages | ✅ |
 | Labeled buttons and input descriptions | All controls use `helpText()` and labeled `actionButton`s | ✅ |
-| Unit test suite | 81 assertions across 4 `testthat` files; all passing | ✅ |
+| Unit test suite | 81 assertions across 4 `testthat` files covering all pure helper functions | ✅ |
 
 ### Optional Module Choice
 
@@ -81,7 +81,7 @@ Tab 4 implements **Individual Gene Expression Visualization**, the "choose-your-
 | Comparison direction | HD vs. Control — positive log₂FC = higher in HD |
 | Normalization | DESeq2 size-factor normalization (pre-computed by the original study authors; this app does not re-run DESeq2) |
 
-> **Citation (TODO: verify):** Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, et al. (2015) RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression. *PLOS ONE* 10(12): e0143563. <https://doi.org/10.1371/journal.pone.0143563>
+> **Citation:** Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, Bregu J, et al. (2015). RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression. *PLOS ONE* 10(12): e0143563. <https://doi.org/10.1371/journal.pone.0143563>
 
 ### Sample Metadata (`sample_info.csv`)
 
@@ -406,7 +406,7 @@ test_file("tests/test_tab3.R")   # 17 assertions
 test_file("tests/test_tab4.R")   # 21 assertions
 ```
 
-All 81 assertions pass: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 81 ]`
+The repository includes a testthat suite covering helper functions across the four app modules, with 81 assertions total (13 + 30 + 17 + 21). Run the commands above to verify all pass in your local environment.
 
 ### Functions covered
 
@@ -478,3 +478,12 @@ All 81 assertions pass: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 81 ]`
 **Course:** BF591 — Bioinformatics with R, Boston University  
 **Project:** Final project — Integrated R Shiny Bioinformatics Application  
 **Repository:** <https://github.com/YZversion/APP>
+
+---
+
+## Repository Metadata
+
+Suggested GitHub repository description:
+> Integrated R Shiny app for interactive exploration of Huntington's Disease RNA-seq data.
+
+Suggested topics: `r` · `shiny` · `bioinformatics` · `rnaseq` · `differential-expression` · `huntingtons-disease`
