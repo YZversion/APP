@@ -450,10 +450,12 @@ All 81 assertions pass: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 81 ]`
 
 ## Citations
 
-**Dataset:**
-> TODO: Verify — Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, et al. (2015) RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression. *PLOS ONE* 10(12): e0143563. <https://doi.org/10.1371/journal.pone.0143563>
+**Dataset paper:**
+> Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, Bregu J, et al. (2015)
+> RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression.
+> *PLOS ONE* 10(12): e0143563. <https://doi.org/10.1371/journal.pone.0143563>
 
-**GEO entry:** <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64810>
+**GEO entry:** [GSE64810](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64810) — mRNA-Seq Expression profiling of human post-mortem BA9 brain tissue for Huntington's Disease and neurologically normal individuals.
 
 **Key R packages:**
 
@@ -472,7 +474,7 @@ All 81 assertions pass: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 81 ]`
 
 ## Author
 
-**Name:** TODO: add your name  
+**Name:** Yinzhou Lu  
 **Course:** BF591 — Bioinformatics with R, Boston University  
 **Project:** Final project — Integrated R Shiny Bioinformatics Application  
 **Repository:** <https://github.com/YZversion/APP>
