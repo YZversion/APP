@@ -675,14 +675,19 @@ server <- function(input, output, session) {
     load_csv(input$tab4_sample_file)
   })
 
-  # Gene selector — searchable selectize, populated once the counts file loads
+  # Gene selector: server-side selectize keeps the large gene list responsive.
   output$tab4_gene_ui <- renderUI({
-    mat   <- tab4_counts()
-    genes <- rownames(mat)
     selectizeInput("tab4_gene", "Select gene:",
-                   choices  = genes,
-                   selected = genes[1],
+                   choices  = NULL,
                    options  = list(placeholder = "Search gene symbol..."))
+  })
+
+  observeEvent(tab4_counts(), {
+    genes <- rownames(tab4_counts())
+    updateSelectizeInput(session, "tab4_gene",
+                         choices  = genes,
+                         selected = genes[1],
+                         server   = TRUE)
   })
 
   # Group selector — categorical cols from sample_info, defaulting to 'diagnosis'
