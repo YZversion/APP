@@ -48,6 +48,19 @@ Standard DESeq2 columns plus: `neg_log10_padj`, `significance` (FDR<0.05 | Not s
 ### `gene_expression_long.csv`
 Long-format pivot of counts_wide joined to sample_info. Columns: `gene_id`, `gene_symbol`, `sample_id`, `diagnosis`, `normalized_count`, `log2_normalized_count`, `age_at_death`, `sex`, `vonsattel_grade`, `cag_repeat`. **147 MB — do not load this file in the Shiny app**; pivot from counts_wide + sample_info reactively instead.
 
+## Build Status
+
+| Tab | Status | File |
+|---|---|---|
+| Tab 1 — Sample Information | **Complete** | `app/app.R` |
+| Tab 2 — Counts Exploration | **Complete** | `app/app.R` |
+| Tab 3 — Differential Expression | Placeholder only | `app/app.R` |
+| Tab 4 — Choose-your-own | Not decided | `app/app.R` |
+| Tests Tab 1 | **Complete** — 13 assertions | `tests/test_tab1.R` |
+| Tests Tab 2 | **Complete** — 30 assertions | `tests/test_tab2.R` |
+
+Run all tests: `testthat::test_file("tests/test_tab1.R")` and `testthat::test_file("tests/test_tab2.R")`
+
 ## Planned Shiny App Architecture
 
 The app goes in `app/app.R`. Use `navbarPage` at the top level with nested `tabsetPanel` per tab. Each tab has its own `fileInput` and `sidebarLayout`.

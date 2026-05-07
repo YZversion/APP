@@ -78,6 +78,50 @@ build_col_summary <- function(df) {
   )
 }
 
+# --- tab2 helpers (also used by tests) ---------------------------------------
+
+# Strips gene_id / gene_symbol / gene_name (cols 1-3) from counts_wide.csv
+# and coerces the remaining sample columns to a plain numeric matrix.
+strip_count_matrix <- function(df) {
+  mat <- as.matrix(df[, -(1:3)])
+  storage.mode(mat) <- "numeric"
+  mat
+}
+
+# Returns a logical vector (length = nrow(mat)): TRUE where per-gene variance
+# is at or above the var_pct-th percentile of all gene variances.
+pass_var_filter <- function(mat, var_pct) {
+  gene_vars <- apply(mat, 1, var, na.rm = TRUE)
+  thresh    <- quantile(gene_vars, probs = var_pct / 100, na.rm = TRUE)
+  gene_vars >= thresh
+}
+
+# Returns a logical vector: TRUE where a gene has >= min_nonzero samples with
+# a non-zero count.
+pass_nonzero_filter <- function(mat, min_nonzero) {
+  rowSums(mat > 0, na.rm = TRUE) >= min_nonzero
+}
+
+# Builds the per-gene stats data frame used by both diagnostic scatter plots.
+# pass is a logical vector of length nrow(mat).
+compute_gene_stats <- function(mat, pass) {
+  data.frame(
+    log_median = log10(apply(mat, 1, median, na.rm = TRUE) + 1),
+    log_var    = log10(apply(mat, 1, var,    na.rm = TRUE) + 1),
+    n_zeros    = rowSums(mat == 0, na.rm = TRUE),
+    # Factor levels set so Fail rows sort first (drawn behind Pass points)
+    status     = factor(ifelse(pass, "Pass", "Fail"), levels = c("Fail", "Pass"))
+  )
+}
+
+# Subsets a passed-filter matrix to the top n_max genes by variance.
+# Called before pheatmap to keep rendering responsive on large datasets.
+cap_heatmap_genes <- function(mat_pass, n_max = 500) {
+  if (nrow(mat_pass) <= n_max) return(mat_pass)
+  top_idx <- order(apply(mat_pass, 1, var, na.rm = TRUE), decreasing = TRUE)[seq_len(n_max)]
+  mat_pass[top_idx, , drop = FALSE]
+}
+
 # ── UI ────────────────────────────────────────────────────────────────────────
 ui <- navbarPage(
   title = "HD RNA-seq Explorer",
@@ -277,35 +321,17 @@ server <- function(input, output, session) {
 
   # ── Tab 2 ──────────────────────────────────────────────────────────────────
 
-  # Load counts_wide.csv and strip the first 3 metadata columns (gene_id,
-  # gene_symbol, gene_name), returning a plain numeric matrix (genes × samples).
+  # Load counts_wide.csv, strip metadata cols 1-3, return numeric matrix.
   tab2_data <- reactive({
-    df  <- load_csv(input$tab2_file)
-    mat <- as.matrix(df[, -(1:3)])
-    # Coerce storage type — read.csv should give numeric, but guards against
-    # any character columns that slipped through
-    storage.mode(mat) <- "numeric"
-    mat
+    strip_count_matrix(load_csv(input$tab2_file))
   })
 
-  # Apply both slider filters to the full matrix.
-  # Returns list(mat = full genes×samples matrix, pass = logical vector of length nrow(mat)).
-  # Keeping the full matrix in the return value lets diagnostic plots show
-  # filtered-out genes in a different colour without re-reading the file.
+  # Apply both slider filters; returns list(mat = full matrix, pass = logical vector).
+  # Keeping the full matrix lets diagnostic plots colour filtered-out genes differently.
   tab2_filtered <- reactive({
-    mat <- tab2_data()
-
-    # Per-gene variance across all 69 samples
-    gene_vars <- apply(mat, 1, var, na.rm = TRUE)
-
-    # Variance percentile threshold: genes at or above this percentile pass
-    var_thresh <- quantile(gene_vars, probs = input$tab2_var_pct / 100, na.rm = TRUE)
-
-    # Number of samples with a non-zero count for each gene
-    gene_nonzero <- rowSums(mat > 0, na.rm = TRUE)
-
-    pass <- gene_vars >= var_thresh & gene_nonzero >= input$tab2_nonzero
-
+    mat  <- tab2_data()
+    pass <- pass_var_filter(mat, input$tab2_var_pct) &
+            pass_nonzero_filter(mat, input$tab2_nonzero)
     list(mat = mat, pass = pass)
   })
 
@@ -331,21 +357,10 @@ server <- function(input, output, session) {
     )
   }, striped = TRUE, hover = TRUE)
 
-  # Diagnostic plot helpers — both scatter plots share the same per-gene stats,
-  # so compute them once here and reuse in both render functions.
+  # Both diagnostic scatter plots share the same per-gene stats; compute once.
   tab2_gene_stats <- reactive({
-    res          <- tab2_filtered()
-    mat          <- res$mat
-    gene_median  <- apply(mat, 1, median, na.rm = TRUE)
-    gene_var     <- apply(mat, 1, var,    na.rm = TRUE)
-    gene_zeros   <- rowSums(mat == 0, na.rm = TRUE)
-    data.frame(
-      log_median = log10(gene_median + 1),
-      log_var    = log10(gene_var    + 1),
-      n_zeros    = gene_zeros,
-      # Factor so Fail rows are drawn first (behind Pass points)
-      status     = factor(ifelse(res$pass, "Pass", "Fail"), levels = c("Fail", "Pass"))
-    )
+    res <- tab2_filtered()
+    compute_gene_stats(res$mat, res$pass)
   })
 
   # Diagnostic Plot 1: median count vs variance
@@ -386,11 +401,8 @@ server <- function(input, output, session) {
     validate(need(nrow(mat_pass) >= 2,
                   "Fewer than 2 genes pass the current filters. Adjust the sliders."))
 
-    # Cap at 500 genes by variance to keep pheatmap responsive
-    if (nrow(mat_pass) > 500) {
-      top_idx  <- order(apply(mat_pass, 1, var, na.rm = TRUE), decreasing = TRUE)[1:500]
-      mat_pass <- mat_pass[top_idx, , drop = FALSE]
-    }
+    # Cap to top 500 genes by variance to keep pheatmap responsive
+    mat_pass <- cap_heatmap_genes(mat_pass)
 
     if (input$tab2_log_heatmap) {
       mat_pass <- log2(mat_pass + 1)
