@@ -2,20 +2,70 @@
 
 **An integrated R Shiny application for interactive exploration of Huntington's Disease transcriptomic data.**
 
+BF591 — Bioinformatics with R | Boston University | Final Project
+
 ---
 
 ## Overview
 
-HD RNA-seq Explorer is a single, self-contained R Shiny application built for BF591 (Bioinformatics with R) at Boston University. The app provides four fully integrated interactive modules for exploring a publicly available RNA-seq dataset comparing post-mortem brain tissue from Huntington's Disease (HD) patients and neurologically normal controls.
+HD RNA-seq Explorer is a single, self-contained R Shiny application that provides four integrated interactive modules for exploring a publicly available RNA-seq dataset comparing post-mortem brain tissue from Huntington's Disease (HD) patients and neurologically normal controls.
 
-The application allows users to:
-
-- Explore sample-level clinical and technical metadata
-- Filter and visualize a normalized gene expression counts matrix
-- Examine pre-computed differential expression results through an interactive table and volcano plot
-- Investigate the expression of any individual gene across sample groups
+| Module | Purpose |
+|---|---|
+| Sample Information | Explore clinical and technical metadata for all 69 samples |
+| Counts Matrix | Filter, cluster, and decompose the normalized gene expression matrix |
+| Differential Expression | Browse and visualize pre-computed DESeq2 results interactively |
+| Gene Expression *(optional module)* | Examine any single gene's expression across user-defined sample groups |
 
 All analysis is performed reactively in-browser — no command-line R or pre-generated plots are required to use the app.
+
+---
+
+## Quick Start
+
+```r
+# 1. Clone the repository
+#    (bash / PowerShell terminal)
+git clone https://github.com/YZversion/APP.git
+cd APP
+
+# 2. Install R dependencies  (run once in R or RStudio)
+install.packages(c(
+  "shiny", "bslib", "ggplot2", "DT", "tidyr",
+  "pheatmap", "RColorBrewer", "ggbeeswarm", "colourpicker"
+))
+
+# 3. Generate processed data files  (~2 min; downloads ~50 MB from NCBI GEO)
+Rscript scripts/run_all_data_prep.R
+
+# 4. Launch the app
+shiny::runApp("app/app.R")
+```
+
+Upload the CSV files from `data/processed/` to each tab when prompted.
+
+> `data/raw/` and `data/processed/` are not committed to this repository. They are generated locally by the preprocessing pipeline.
+
+---
+
+## Project Requirements Coverage
+
+This table maps the app implementation to the BF591 Final Project rubric.
+
+| Requirement | Implementation | Status |
+|---|---|---|
+| Single integrated app (not four separate apps) | One `app/app.R`; `navbarPage` with four `tabPanel`s | ✅ |
+| Sample Information Exploration | Tab 1: Summary, Data Table, Distributions | ✅ |
+| Counts Matrix Exploration | Tab 2: Filter Summary, Diagnostic Plots, Heatmap, PCA | ✅ |
+| Differential Expression | Tab 3: Sortable table with gene search, volcano plot | ✅ |
+| Choose-your-own module | **Tab 4: Individual Gene Expression Visualization** | ✅ |
+| File validation | `.csv` extension check; row/column count check; inline `validate()` messages | ✅ |
+| Labeled buttons and input descriptions | All controls use `helpText()` and labeled `actionButton`s | ✅ |
+| Unit test suite | 81 assertions across 4 `testthat` files; all passing | ✅ |
+
+### Optional Module Choice
+
+Tab 4 implements **Individual Gene Expression Visualization**, the "choose-your-own" module for this project. It accepts `counts_wide.csv` and `sample_info.csv`, lets the user search for any gene by symbol, choose a grouping variable from the sample metadata, and render the expression distribution as a boxplot, violin, bar chart, or beeswarm plot. A reactive data table of normalized counts joined to sample metadata is shown below the plot.
 
 ---
 
@@ -24,49 +74,41 @@ All analysis is performed reactively in-browser — no command-line R or pre-gen
 | Property | Value |
 |---|---|
 | GEO Accession | [GSE64810](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64810) |
-| SRA Accession | SRP051844 |
+| SRA Study | SRP051844 |
 | Tissue | Post-mortem human prefrontal cortex (Brodmann Area 9) |
-| Sequencing Platform | Illumina HiSeq 2000 |
-| Total Samples | 69 (20 HD, 49 neurologically normal controls) |
-| Comparison | HD vs. Control (HD is the numerator for log₂FC) |
-| Normalization | DESeq2 size-factor normalization (pre-computed by study authors) |
+| Sequencing platform | Illumina HiSeq 2000 |
+| Total samples | 69 (20 HD, 49 neurologically normal controls) |
+| Comparison direction | HD vs. Control — positive log₂FC = higher in HD |
+| Normalization | DESeq2 size-factor normalization (pre-computed by the original study authors; this app does not re-run DESeq2) |
 
-### Sample Metadata
+> **Citation (TODO: verify):** Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, et al. (2015) RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression. *PLOS ONE* 10(12): e0143563. <https://doi.org/10.1371/journal.pone.0143563>
 
-Key clinical and technical variables per sample:
+### Sample Metadata (`sample_info.csv`)
 
-| Column | Type | Description |
+| Column | Type | Notes |
 |---|---|---|
-| `sample_id` | character | Study identifier (C_#### or H_####) |
-| `geo_accession` | character | GEO sample accession (GSM...) |
+| `sample_id` | character | `C_####` (control) or `H_####` (HD) |
+| `geo_accession` | character | GEO sample accession (GSM…) |
 | `diagnosis` | categorical | `Control` or `HD` |
-| `age_at_death` | numeric | Age at death in years |
+| `age_at_death` | numeric | Years |
 | `pmi_hours` | numeric | Post-mortem interval in hours |
 | `rin` | numeric | RNA integrity number (0–10) |
 | `mrna_seq_reads` | numeric | mRNA-seq read count |
-| `vonsattel_grade` | numeric | HD neuropathology grade (HD samples only) |
-| `cag_repeat` | numeric | HTT CAG repeat length (HD samples only) |
+| `vonsattel_grade` | numeric | HD neuropathology grade — **NA for all controls** |
+| `cag_repeat` | numeric | HTT CAG repeat length — **NA for all controls** |
 | `hv_striatal_score` | numeric | Hadzi–Vonsattel striatal score |
 | `hv_cortical_score` | numeric | Hadzi–Vonsattel cortical score |
-| `sex` | — | Not available in the GEO series matrix extract (all NA) |
-
-> **Note:** `vonsattel_grade`, `cag_repeat`, `age_of_onset`, and `disease_duration_years` are NA for all Control samples — these are HD-specific covariates.
+| `sex` | — | Not available in the GEO series matrix for this accession (all NA; automatically excluded from grouping dropdowns) |
 
 ### Processed Files
 
-The preprocessing pipeline produces five app-ready CSV files in `data/processed/`:
-
-| File | Approx. Size | Description |
+| File | Size | Description |
 |---|---|---|
 | `sample_info.csv` | < 1 MB | 69 rows × 19 columns of sample metadata |
-| `counts_wide.csv` | ~30 MB | Genes × samples normalized counts matrix |
-| `differential_expression.csv` | ~6 MB | Pre-computed DESeq2 DE results (HD vs. Control) |
-| `gene_expression_long.csv` | ~147 MB | Long-format pivot of counts × metadata (pipeline output only) |
+| `counts_wide.csv` | ~30 MB | Genes × samples normalized counts (cols 1–3 gene metadata; cols 4–72 samples) |
+| `differential_expression.csv` | ~6 MB | Pre-computed DESeq2 results with derived columns |
+| `gene_expression_long.csv` | ~147 MB | Long-format pivot — **pipeline output only; not loaded by the app** |
 | `app_data_dictionary.csv` | < 1 MB | Column-level documentation for all files |
-
-> **Important:** `gene_expression_long.csv` is **not loaded** by the Shiny app. The app pivots reactively from `counts_wide.csv` + `sample_info.csv` to avoid the 147 MB overhead.
-
-> **TODO:** Confirm full dataset citation. Based on GEO accession, likely: Labadorf A et al. (2015) *RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression.* PLOS ONE 10(12): e0143563. https://doi.org/10.1371/journal.pone.0143563 — verify before submission.
 
 ---
 
@@ -74,102 +116,89 @@ The preprocessing pipeline produces five app-ready CSV files in `data/processed/
 
 ### Tab 1 — Sample Information Exploration
 
-**Purpose:** Understand the clinical and technical composition of the 69-sample cohort before interpreting any expression results.
-
 **Input:** `sample_info.csv`
 
-**Sub-tabs and controls:**
+**Sub-tabs:**
 
-| Sub-tab | Output | Description |
-|---|---|---|
-| Summary | Text + table | Row/column counts; per-column type, mean ± SD (numeric) or up to 5 distinct values (categorical) |
-| Data Table | Interactive `DT` table | Full sample metadata, sortable and filterable by any column |
-| Distributions | Violin or histogram | Choose any numeric column; optionally group by any categorical column — renders a grouped violin + jitter when grouped, a histogram when ungrouped |
+| Sub-tab | Output |
+|---|---|
+| Summary | Row/column count; column type; mean ± SD (numeric) or up to 5 distinct values (categorical) |
+| Data Table | Full sample metadata — sortable, filterable `DT` table |
+| Distributions | Grouped violin + jitter when a categorical column is selected; histogram when no group is chosen |
 
-**Interpretation note:** Use this tab to check batch variables (PMI, RIN) for potential confounding before drawing biological conclusions from the expression tabs.
+**Controls (sidebar):** Numeric column selector; optional group-by selector. Both are populated dynamically from the uploaded file; the group-by selector automatically excludes all-NA columns (e.g., `sex`).
+
+*Interpretation note: Use PMI and RIN distributions to assess potential technical confounders before interpreting expression results.*
 
 ---
 
 ### Tab 2 — Counts Matrix Exploration
 
-**Purpose:** Assess data quality and identify informative genes before differential expression interpretation.
-
 **Input:** `counts_wide.csv`
 
 **Controls:**
 
-| Control | Default | Description |
+| Control | Default | Effect |
 |---|---|---|
-| Variance percentile slider | 50% | Retains genes at or above the Nth variance percentile |
-| Minimum non-zero samples slider | 10 | Retains genes expressed in at least N samples |
+| Variance percentile | 50 % | Retains genes at or above the Nth percentile of per-gene variance |
+| Minimum non-zero samples | 10 | Retains genes with non-zero counts in at least N samples |
 | Log₂-transform toggle | On | Applies log₂(x + 1) to the heatmap matrix |
-| PCA display type | Scatter | Switch between PC-vs-PC scatter and beeswarm view of top N PCs |
+| PCA display type | Scatter | Scatter (PC vs. PC) or beeswarm (top N PCs) |
 
 **Sub-tabs:**
 
-| Sub-tab | Output | Description |
-|---|---|---|
-| Filter Summary | Summary table | Total genes, passing genes (count + %), failing genes (count + %), sample count |
-| Diagnostic Plots | Two scatter plots | (1) log₁₀ median vs. log₁₀ variance; (2) log₁₀ median vs. zero-count samples — passing genes colored darker, filtered genes lighter |
-| Heatmap | `pheatmap` | Hierarchically clustered heatmap of filtered genes (capped at 500 highest-variance genes); RdBu color scale |
-| PCA | Scatter or beeswarm | `prcomp` on the transposed filtered matrix (samples as rows); axis labels include % variance explained |
+| Sub-tab | Output |
+|---|---|
+| Filter Summary | Passing/failing gene counts and percentages; total sample count |
+| Diagnostic Plots | (1) log₁₀ median vs. log₁₀ variance; (2) log₁₀ median vs. zero-sample count — pass/fail colored |
+| Heatmap | `pheatmap` hierarchical heatmap, RdBu palette, capped at 500 highest-variance passing genes |
+| PCA | `prcomp` on transposed filtered matrix (samples as rows); axis labels show % variance explained |
 
-**Interpretation note:** The diagnostic scatter plots reveal the relationship between expression level and variability. Low-expression, high-zero genes filtered out here are typically noise rather than biology.
+*Interpretation note: Filtered genes in the diagnostic plots are rendered lighter and drawn first so passing genes are visible on top. Low-expression, high-zero genes removed here are typically technical noise.*
 
 ---
 
 ### Tab 3 — Differential Expression
 
-**Purpose:** Identify genes significantly dysregulated in HD relative to controls, and explore DE results interactively.
-
-**Input:** `differential_expression.csv` (pre-computed DESeq2 results, HD vs. Control)
+**Input:** `differential_expression.csv` (pre-computed DESeq2 results — the app does not re-run DESeq2)
 
 **Controls:**
 
 | Control | Description |
 |---|---|
-| X-axis column | Choose from: `log2FoldChange`, `baseMean`, `lfcSE`, `stat`, `pvalue`, `padj` |
-| Y-axis column | Choose from: `neg_log10_padj`, `pvalue`, `padj`, `stat`, `baseMean`, `log2FoldChange` |
-| Base point color | Color picker for non-significant points (default: grey `#999999`) |
-| Highlight color | Color picker for significant points (default: red `#d7191c`) |
-| Highlight threshold slider | Points where −log₁₀(padj) exceeds this value are highlighted (range 0–300) |
-| Gene symbol search | Case-insensitive partial match filter on the table |
-| Update Volcano Plot button | Renders the volcano only on click, preventing layout thrash on slider interaction |
+| X-axis / Y-axis selectors | Choose any DE column for each axis (default: `log2FoldChange` vs. `neg_log10_padj`) |
+| Base / Highlight color pickers | `colourpicker` widgets for non-significant and significant points |
+| Threshold slider | Points where −log₁₀(padj) exceeds this value are drawn in the highlight color |
+| Gene symbol search | Case-insensitive partial-match filter applied to the table |
+| Update Volcano Plot button | Plot renders only on click — prevents re-rendering on every slider adjustment |
 
 **Sub-tabs:**
 
-| Sub-tab | Output | Description |
-|---|---|---|
-| Table | Interactive `DT` table | Filtered DE results, sortable by any column |
-| Volcano Plot | ggplot2 scatter | Customizable volcano; highlighted points exceed the padj threshold |
-
-**Interpretation note:** The comparison is HD vs. Control — positive log₂FC means higher expression in HD. The `neg_log10_padj` column is precomputed (−log₁₀(padj)) so it can be used directly as the y-axis.
+| Sub-tab | Output |
+|---|---|
+| Table | Filterable, sortable `DT` table of DE results |
+| Volcano Plot | ggplot2 scatter with user-defined axes, colors, and significance threshold |
 
 ---
 
-### Tab 4 — Individual Gene Expression Visualization
+### Tab 4 — Individual Gene Expression Visualization *(optional module)*
 
-**Purpose:** Examine the normalized expression of any single gene across all 69 samples, stratified by any clinical grouping variable.
-
-**Inputs:** `counts_wide.csv` + `sample_info.csv` (both uploaded independently)
+**Inputs:** `counts_wide.csv` + `sample_info.csv` (uploaded independently from Tab 2)
 
 **Controls:**
 
 | Control | Description |
 |---|---|
-| Gene selector | Searchable selectize populated from row names of the counts matrix |
-| Group by | Dropdown of categorical columns from sample metadata (defaults to `diagnosis`) |
+| Gene selector | Searchable `selectizeInput` populated from all gene symbols in the counts matrix |
+| Group by | Dropdown of categorical columns from `sample_info.csv` (defaults to `diagnosis`) |
 | Plot type | Boxplot, Violin, Bar (mean ± SE), or Beeswarm |
-| Plot button | Renders the plot on click (`bindEvent`) |
+| Plot button | Plot renders on click via `bindEvent()` |
 
 **Outputs:**
+- Expression plot colored by group
+- Reactive `DT` table showing normalized counts joined to sample metadata for the selected gene
 
-| Output | Description |
-|---|---|
-| Expression plot | Selected plot type, colored by group |
-| Gene table | Reactive `DT` table of normalized counts joined to sample metadata for the selected gene |
-
-**Interpretation note:** Bar plots show group mean ± SE. Violin and beeswarm plots show the full distribution. For HD-specific columns such as `vonsattel_grade`, grouping by diagnosis first is recommended since control samples have NA for those columns.
+*Interpretation note: The bar plot shows group mean ± SE. HD-specific columns (`vonsattel_grade`, `cag_repeat`) are NA for all controls; grouping by `diagnosis` is recommended before exploring HD-specific covariates.*
 
 ---
 
@@ -178,49 +207,46 @@ The preprocessing pipeline produces five app-ready CSV files in `data/processed/
 ```
 .
 ├── app/
-│   └── app.R                      # Complete Shiny application (~723 lines)
+│   └── app.R                        # Complete Shiny app (~720 lines, all four tabs)
 ├── data/
-│   ├── raw/                       # .gitignore'd — downloaded GEO source files
+│   ├── raw/                         # gitignored — downloaded GEO source files
 │   ├── metadata/
-│   │   └── samples_clean.csv      # Committed — 69-row sample annotation
-│   └── processed/                 # .gitignore'd — app-ready CSVs (generated by pipeline)
+│   │   └── samples_clean.csv        # committed — 69-row sample annotation
+│   └── processed/                   # gitignored — app-ready CSVs (generated by pipeline)
 ├── docs/
-│   └── data_preparation_plan.md   # Workflow notes and CSV schemas
-├── results/                       # .gitignore'd — analysis outputs
+│   └── data_preparation_plan.md     # Planning document (CSV schemas, workflow notes)
+├── results/                         # gitignored — analysis outputs
 ├── scripts/
-│   ├── 01_download_data.R         # Downloads 3 GEO files into data/raw/
-│   ├── 02_prepare_processed_csvs.R # Parses GEO files → 5 app-ready CSVs (~2 min)
-│   ├── 03_validate_processed_csvs.R # Sanity-checks all processed files
-│   ├── run_all_data_prep.R        # Runs all three steps in order
-│   └── README.md                  # Scripts usage notes
+│   ├── 01_download_data.R           # Downloads 3 GEO files into data/raw/
+│   ├── 02_prepare_processed_csvs.R  # Parses GEO files → 5 app-ready CSVs
+│   ├── 03_validate_processed_csvs.R # Validates columns, sample IDs, and row counts
+│   └── run_all_data_prep.R          # Runs all three steps in sequence
 ├── tests/
-│   ├── test_tab1.R                # 13 assertions — CSV loading, column summary
-│   ├── test_tab2.R                # 30 assertions — matrix filtering, PCA, heatmap
-│   ├── test_tab3.R                # 17 assertions — DE table filtering, volcano logic
-│   └── test_tab4.R                # 21 assertions — gene extraction, pivoting, plotting
+│   ├── test_tab1.R                  # 13 assertions
+│   ├── test_tab2.R                  # 30 assertions
+│   ├── test_tab3.R                  # 17 assertions
+│   └── test_tab4.R                  # 21 assertions
 ├── .gitignore
-├── CLAUDE.md                      # Developer guidance (not for end users)
+├── CLAUDE.md                        # Developer notes (not for end users)
 ├── LICENSE
 └── README.md
 ```
 
-> `data/raw/` and `data/processed/` are excluded from version control. Only `data/metadata/samples_clean.csv` is committed. The processed files must be regenerated locally before the app will run.
+Only `data/metadata/samples_clean.csv` and the scripts/tests/app are committed. Raw GEO files and processed CSVs must be regenerated locally.
 
 ---
 
 ## Installation and Requirements
 
-### R Version
+### R version
 
-R ≥ 4.2.0 is recommended.
+R ≥ 4.2.0 recommended. Tested on R 4.x with RStudio on macOS and Windows.
 
-### CRAN Packages
-
-Install all required packages with:
+### Required packages
 
 ```r
+# Shiny app
 install.packages(c(
-  # Shiny app
   "shiny",
   "bslib",
   "ggplot2",
@@ -229,21 +255,19 @@ install.packages(c(
   "pheatmap",
   "RColorBrewer",
   "ggbeeswarm",
-  "colourpicker",
-  # Preprocessing pipeline
-  "dplyr",
-  "readr",
-  # Tests
-  "testthat",
-  "here"
+  "colourpicker"
 ))
+
+# Preprocessing pipeline (run_all_data_prep.R only)
+install.packages(c("dplyr", "readr"))
+
+# Test suite
+install.packages(c("testthat", "here"))
 ```
 
-### Bioconductor Packages
+### Bioconductor
 
-This app uses **pre-computed** DESeq2 results provided by the original study authors and downloaded directly from NCBI GEO. The Shiny application itself does not call any Bioconductor packages. No BiocManager installation is required to run the app.
-
-> If you wish to re-run the differential expression analysis independently, you would need `BiocManager::install("DESeq2")`, but this is not part of the current workflow.
+No Bioconductor packages are required to run the Shiny app or the preprocessing pipeline. The normalized counts and differential expression results are downloaded directly from NCBI GEO as pre-computed files produced by the original study authors. If you wish to independently reproduce the DESeq2 analysis, you would need `BiocManager::install("DESeq2")`, but this is outside the scope of the current workflow.
 
 ---
 
@@ -256,143 +280,121 @@ git clone https://github.com/YZversion/APP.git
 cd APP
 ```
 
-### Step 2 — Generate the processed data files
+### Step 2 — Generate processed data files
 
-Run from the project root (RStudio terminal or PowerShell). This downloads three GEO files (~50 MB total) and generates the five processed CSVs:
+Run from the **project root** (RStudio terminal, bash, or PowerShell). Downloads ~50 MB from NCBI GEO and writes five CSVs to `data/processed/`.
 
 ```r
 Rscript scripts/run_all_data_prep.R
 ```
 
-Expected runtime: approximately 2 minutes. Individual steps:
+To run steps individually:
 
 ```r
-Rscript scripts/01_download_data.R         # Download GEO files
-Rscript scripts/02_prepare_processed_csvs.R # Build app-ready CSVs
-Rscript scripts/03_validate_processed_csvs.R # Verify outputs
+Rscript scripts/01_download_data.R          # Download GEO files
+Rscript scripts/02_prepare_processed_csvs.R  # Build app-ready CSVs (~2 min)
+Rscript scripts/03_validate_processed_csvs.R # Verify all outputs
 ```
 
-### Step 3 — Install dependencies
+### Step 3 — Launch the app
 
-```r
-install.packages(c(
-  "shiny", "bslib", "ggplot2", "DT", "tidyr",
-  "pheatmap", "RColorBrewer", "ggbeeswarm", "colourpicker"
-))
-```
-
-### Step 4 — Launch the app
+From the project root in R or RStudio:
 
 ```r
 shiny::runApp("app/app.R")
 ```
 
-Or from within the `app/` directory:
-
-```r
-setwd("app")
-shiny::runApp()
-```
-
-The app will open in your default browser. Upload the files from `data/processed/` using the file inputs in each tab.
+The app opens in your default browser. Upload the appropriate CSV from `data/processed/` using the file input in each tab.
 
 ---
 
 ## Input File Formats
 
-All inputs are CSV files. The app validates that each upload is a `.csv` with more than one row and more than one column, showing an inline error message otherwise.
+All file inputs accept `.csv` only. The app validates the extension, minimum row count (> 1), and minimum column count (> 1), and shows an inline error message on any failure.
 
 ### `sample_info.csv`
 
 | Requirement | Detail |
 |---|---|
-| Required columns | `sample_id`, `diagnosis` |
-| `sample_id` format | Character: `C_####` (control) or `H_####` (HD) |
-| `diagnosis` values | Exactly `Control` or `HD` |
-| Rows | One row per sample (69 total) |
+| `sample_id` | Required; unique; format `C_####` or `H_####` |
+| `diagnosis` | Required; values must be exactly `Control` or `HD` |
+| Rows | One per sample |
 
 ### `counts_wide.csv`
 
 | Requirement | Detail |
 |---|---|
-| Column 1 | `gene_id` — Ensembl ID (e.g., `ENSG00000000003.15`) |
-| Column 2 | `gene_symbol` — HGNC gene symbol |
-| Column 3 | `gene_name` — Gene description (may be empty) |
-| Columns 4–72 | One numeric column per sample; column names must match `sample_id` values in `sample_info.csv` |
-| Values | DESeq2 size-factor normalized counts (non-negative real numbers) |
+| Column 1 | `gene_id` — Ensembl ID |
+| Column 2 | `gene_symbol` — HGNC gene symbol (used as row names for gene lookup) |
+| Column 3 | `gene_name` — description (may be empty) |
+| Columns 4+ | One numeric column per sample; names must match `sample_id` in `sample_info.csv` |
+| Values | DESeq2 size-factor normalized counts (non-negative) |
 
-The app strips columns 1–3 automatically before any analysis and sets `gene_symbol` as row names for gene lookup.
+Columns 1–3 are stripped automatically before any computation.
 
 ### `differential_expression.csv`
 
 | Requirement | Detail |
 |---|---|
 | Required columns | `gene_id`, `gene_symbol`, `log2FoldChange`, `pvalue`, `padj`, `neg_log10_padj` |
-| `neg_log10_padj` | Precomputed as −log₁₀(padj); used as the default volcano y-axis |
-| `direction` | `Up in HD`, `Down in HD`, or `No significant change` |
+| `neg_log10_padj` | Pre-computed as −log₁₀(padj); default volcano y-axis |
 | `significance` | `FDR<0.05` or `Not significant` |
-
-### `gene_expression_long.csv`
-
-This file is produced by the pipeline and used for reference only. The app does **not** accept it as an upload — it reconstructs the long-format data reactively from `counts_wide.csv` and `sample_info.csv`.
+| `direction` | `Up in HD`, `Down in HD`, or `No significant change` |
 
 ---
 
 ## Data Processing Workflow
 
-The preprocessing pipeline (`scripts/02_prepare_processed_csvs.R`) performs the following steps:
+The preprocessing pipeline (`scripts/02_prepare_processed_csvs.R`) performs these steps:
 
-1. **Metadata extraction** — Parses the GEO series matrix (`GSE64810_series_matrix.txt.gz`) to extract sample-level characteristics: diagnosis, age at death, PMI, RIN, CAG repeat, Vonsattel grade, and Hadzi–Vonsattel scores. Diagnosis labels are standardized to `Control` / `HD`.
+1. **Metadata extraction** — Parses the GEO series matrix to extract diagnosis, age at death, PMI, RIN, CAG repeat, Vonsattel grade, and Hadzi–Vonsattel scores. Diagnosis labels are standardized to `Control` / `HD`.
 
-2. **Counts matrix construction** — Reads the pre-computed DESeq2 normalized counts file (`GSE64810_mlhd_DESeq2_norm_counts_adjust.txt.gz`). Sample columns are coerced to numeric and subset to match the 69 samples in the metadata. Gene symbols are joined from the DE table.
+2. **Counts matrix construction** — Reads the pre-computed normalized counts file; coerces sample columns to numeric; subsets to the 69 samples in the metadata; joins gene symbols from the DE table.
 
-3. **Differential expression table** — Reads the pre-computed DESeq2 DE results (`GSE64810_mlhd_DESeq2_diffexp_DESeq2_outlier_trimmed_adjust.txt.gz`). Adds derived columns: `neg_log10_padj`, `significance` (FDR < 0.05), `direction` (Up/Down in HD), and `rank` (sorted by padj ascending, then |log₂FC| descending).
+3. **Differential expression table** — Reads the pre-computed DESeq2 results file; adds derived columns: `neg_log10_padj`, `significance` (FDR < 0.05), `direction` (Up/Down in HD), and `rank` (sorted by padj ascending, then |log₂FC| descending).
 
-4. **Long-format pivot** — Pivots the wide counts matrix to long format and joins sample metadata. Output: `gene_expression_long.csv` (~147 MB). Not used by the app at runtime.
+4. **Long-format pivot** — Pivots the wide matrix to long format and joins sample metadata. Writes `gene_expression_long.csv` (~147 MB) for reference. This file is **not loaded by the app at runtime**.
 
-5. **Validation** — `03_validate_processed_csvs.R` checks that all required columns are present, sample IDs match between counts and metadata, diagnosis labels are well-formed, and gene IDs are unique.
+5. **Validation** — Checks required columns, unique gene IDs, matching sample IDs between counts and metadata, and well-formed diagnosis labels.
 
-> **Normalization note:** Counts were normalized by the original study authors using DESeq2 size-factor normalization. This app does not re-run normalization. Do not apply additional normalization to the `counts_wide.csv` values.
+> **Normalization:** Counts were normalized by the original study authors using DESeq2 size-factor normalization. Do not apply additional normalization to `counts_wide.csv`.
 
-> **DE method note:** Differential expression was computed by the original study authors using DESeq2 with outlier trimming (Cook's distance filtering). The comparison is HD vs. Control; positive log₂FC indicates higher expression in HD. This app displays those results — it does not re-run DESeq2.
+> **Differential expression:** Results were computed by the original study authors using DESeq2 (Wald test, Benjamini–Hochberg correction, Cook's distance outlier filtering). The comparison is HD vs. Control. This app displays those results; it does not re-run DESeq2.
 
 ---
 
-## Screenshots / Demo
+## Screenshots
 
-> Add screenshots after recording the submission video. Save images to `www/screenshots/`.
+Screenshots have not been captured yet. After recording the submission video, save images to `www/screenshots/` and replace the placeholders below.
 
-![Sample Information Tab](www/screenshots/tab1_sample_info.png)
-
-![Counts Exploration — Diagnostic Plots](www/screenshots/tab2_diagnostic_plots.png)
-
-![Counts Exploration — Heatmap](www/screenshots/tab2_heatmap.png)
-
-![Counts Exploration — PCA](www/screenshots/tab2_pca.png)
-
-![Differential Expression — Volcano Plot](www/screenshots/tab3_volcano.png)
-
-![Gene Expression — Individual Gene](www/screenshots/tab4_gene_expression.png)
+| Tab | Placeholder path |
+|---|---|
+| Sample Information | `www/screenshots/tab1_sample_info.png` |
+| Counts — Diagnostic Plots | `www/screenshots/tab2_diagnostic_plots.png` |
+| Counts — Heatmap | `www/screenshots/tab2_heatmap.png` |
+| Counts — PCA | `www/screenshots/tab2_pca.png` |
+| Differential Expression — Volcano | `www/screenshots/tab3_volcano.png` |
+| Gene Expression | `www/screenshots/tab4_gene_expression.png` |
 
 ---
 
 ## Video Presentation
 
-The submission requires a screen-recorded presentation of ≤ 5 minutes. Suggested outline:
+Submission requires a screen-recorded presentation of ≤ 5 minutes.
 
-| Segment | Duration | Content |
+| Segment | Time | Suggested content |
 |---|---|---|
-| Introduction | ~30 sec | State the biological question (HD vs. Control), dataset (GSE64810, 69 samples, BA9), and app structure (4 tabs) |
-| Tab 1 — Sample Info | ~60 sec | Load `sample_info.csv`; show Summary sub-tab (row/column counts, column types); switch to Data Table; show a grouped violin plot (e.g., `age_at_death` grouped by `diagnosis`) |
-| Tab 2 — Counts | ~90 sec | Load `counts_wide.csv`; explain the two filter sliders; show Filter Summary; walk through Diagnostic Plots and explain pass/fail coloring; show the heatmap and toggle log-transform; show PCA scatter with % variance labels |
-| Tab 3 — DE | ~60 sec | Load `differential_expression.csv`; search for a gene (e.g., "HTT") in the table; switch to Volcano Plot; adjust colors and threshold slider; click "Update Volcano Plot" |
-| Tab 4 — Gene Expression | ~60 sec | Load both files; search for "HTT"; select "diagnosis" as group; try all four plot types; explain the reactive table below the plot |
+| Introduction | ~30 s | Biological question (HD vs. Control), dataset (GSE64810, 69 samples, BA9 cortex), app overview |
+| Tab 1 — Sample Info | ~60 s | Load `sample_info.csv`; show Summary; switch to Data Table; show a violin of `age_at_death` by `diagnosis` |
+| Tab 2 — Counts | ~90 s | Load `counts_wide.csv`; adjust sliders; walk through Filter Summary and Diagnostic Plots; show heatmap with log-transform on/off; show PCA with % variance labels |
+| Tab 3 — DE | ~60 s | Load `differential_expression.csv`; search for "HTT" in the table; switch to Volcano Plot; change colors and threshold; click Update |
+| Tab 4 — Gene Expression | ~60 s | Load both files; search for "HTT"; cycle through all four plot types; point out the reactive table |
 
 ---
 
 ## Testing
 
-The project includes a formal test suite of 81 assertions across four files, covering all pure helper functions in `app/app.R`. Tests do not launch the Shiny application.
+The project includes a formal test suite covering all pure helper functions extracted from `app/app.R`. Tests use `testthat` and source `app/app.R` directly — they do not launch the Shiny server.
 
 ### Run all tests
 
@@ -404,77 +406,73 @@ test_file("tests/test_tab3.R")   # 17 assertions
 test_file("tests/test_tab4.R")   # 21 assertions
 ```
 
-### What is tested
+All 81 assertions pass: `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 81 ]`
 
-| File | Functions tested |
+### Functions covered
+
+| Test file | Functions tested |
 |---|---|
-| `test_tab1.R` | `load_csv_from_path` (extension validation, empty-file errors), `build_col_summary` (numeric/categorical formatting), `get_numeric_cols`, `get_categorical_cols` |
-| `test_tab2.R` | `strip_count_matrix`, `pass_var_filter`, `pass_nonzero_filter`, `compute_gene_stats`, `cap_heatmap_genes`; PCA sanity check (PC count, variance sums to 1) |
-| `test_tab3.R` | `filter_de_table` (empty search, whitespace, case-insensitive partial match, no-match), `make_volcano` (returns gg object, correct axis labels, highlighted-flag threshold) |
-| `test_tab4.R` | `get_gene_counts` (named numeric vector, missing-gene error), `pivot_gene_to_long` (columns present, values join correctly, order-independent), `make_gene_plot` (all four plot types return gg; labels match arguments) |
-
-All 81 assertions pass with `FAIL 0 | WARN 0 | SKIP 0`.
+| `test_tab1.R` | `load_csv_from_path` (extension check, malformed-file errors), `build_col_summary`, `get_numeric_cols`, `get_categorical_cols` |
+| `test_tab2.R` | `strip_count_matrix`, `pass_var_filter`, `pass_nonzero_filter`, combined filter intersection, `compute_gene_stats`, `cap_heatmap_genes`; PCA variance check |
+| `test_tab3.R` | `filter_de_table` (empty, whitespace, case-insensitive, no-match), `make_volcano` (gg object, axis labels, highlighted-flag logic) |
+| `test_tab4.R` | `get_gene_counts` (named vector, missing-gene error), `pivot_gene_to_long` (columns, join correctness, order independence), `make_gene_plot` (all four plot types, axis labels) |
 
 ---
 
 ## Known Limitations
 
-- **Sex metadata is unavailable.** The GEO series matrix for GSE64810 does not include biological sex. The `sex` column exists in `sample_info.csv` but is all `NA`. Grouping by sex in Tab 1 or Tab 4 will produce an empty/NA-only plot.
+- **Sex metadata is unavailable.** `sex` is all-NA in the GEO series matrix for this accession. The app's `get_categorical_cols()` helper automatically excludes all-NA columns, so `sex` does not appear in any grouping dropdown.
 
-- **HD-specific covariates are NA for controls.** `vonsattel_grade`, `cag_repeat`, `age_of_onset`, and `disease_duration_years` are meaningful only for HD samples. Grouping by these columns will show all controls as NA.
+- **HD-specific covariates are NA for all controls.** `vonsattel_grade`, `cag_repeat`, `age_of_onset`, and `disease_duration_years` are meaningful only for HD samples. They do appear in the grouping dropdown; selecting one will show controls as `NA`.
 
-- **Large file load times.** `counts_wide.csv` is ~30 MB. Initial upload and parsing may take several seconds depending on hardware.
+- **Heatmap capped at 500 genes.** After filtering, only the top 500 highest-variance genes are passed to `pheatmap`. This is an intentional performance trade-off.
 
-- **Heatmap is capped at 500 genes.** After filtering, only the top 500 highest-variance genes are passed to `pheatmap`. This is a deliberate performance trade-off; the full filtered set may contain thousands of genes.
+- **File structure assumptions.** The app expects `counts_wide.csv` to have gene metadata in exactly columns 1–3 and numeric sample counts in columns 4+. Files not matching this layout will produce incorrect results.
 
-- **Column name assumptions.** The app expects `counts_wide.csv` to have gene metadata in exactly columns 1–3 (`gene_id`, `gene_symbol`, `gene_name`) and numeric sample counts in columns 4 onward. Files not matching this structure will produce incorrect results or errors.
+- **Tabs do not share loaded data.** Each tab has its own independent file input. Uploading `counts_wide.csv` in Tab 2 does not populate Tab 4.
 
-- **Tabs do not share loaded data.** Each tab has its own independent file input. Uploading `counts_wide.csv` in Tab 2 does not populate Tab 4; both files must be uploaded separately in Tab 4.
+- **No export buttons.** Filtered tables and plots cannot currently be downloaded from within the app.
 
-- **No download buttons.** Filtered tables, plots, and PCA results cannot currently be exported from within the app.
-
-- **No deployment.** The app is designed to run locally. It has not been tested on shinyapps.io or a Shiny Server.
+- **Local deployment only.** The app has not been tested on shinyapps.io or Shiny Server. The `counts_wide.csv` file (~30 MB) may be slow to upload in a remote session.
 
 ---
 
 ## Future Improvements
 
-- **Cross-tab data sharing.** Allow a single file upload to propagate to all tabs that require the same file.
-- **Downloadable results.** Add `downloadButton` for filtered DE tables, PCA scores, and plots.
-- **Robust file validation.** Detect and report mismatched sample IDs between counts and metadata at upload time.
-- **Gene set enrichment analysis.** Extend Tab 3 with an fgsea module using the DE rank column already present in `differential_expression.csv`.
-- **Linked gene selection.** Clicking a point on the volcano plot could pre-populate the gene selector in Tab 4.
-- **shinyapps.io deployment.** Publish a live demo with pre-loaded data.
-- **Sex metadata recovery.** Cross-reference GEO sample accessions against SRA metadata to recover sex information.
+- Cross-tab data sharing so a file uploaded once is available in all tabs that need it
+- Download buttons for filtered tables, PCA scores, and plots
+- Upstream file validation: detect mismatched sample IDs between counts and metadata at upload time
+- GSEA extension using the `rank` column already present in `differential_expression.csv`
+- Volcano-to-Tab-4 linking: clicking a point pre-populates the gene selector
+- shinyapps.io deployment with pre-loaded demo data
 
 ---
 
-## Citation / References
+## Citations
 
 **Dataset:**
-> TODO: Verify — Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, et al. (2015) RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression. *PLOS ONE* 10(12): e0143563. https://doi.org/10.1371/journal.pone.0143563
+> TODO: Verify — Labadorf A, Hoss AG, Lagomarsino V, Latourelle JC, Hadzi TC, et al. (2015) RNA Sequence Analysis of Human Huntington Disease Brain Reveals an Extensive Increase in Inflammatory and Developmental Gene Expression. *PLOS ONE* 10(12): e0143563. <https://doi.org/10.1371/journal.pone.0143563>
 
-**GEO entry:** https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64810
+**GEO entry:** <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64810>
 
 **Key R packages:**
 
-| Package | Purpose | Citation |
-|---|---|---|
-| [shiny](https://shiny.posit.co/) | Web application framework | Chang W et al., Posit Software |
-| [bslib](https://rstudio.github.io/bslib/) | Bootstrap themes (Flatly) | Sievert C et al., Posit Software |
-| [ggplot2](https://ggplot2.tidyverse.org/) | Data visualization | Wickham H (2016), Springer |
-| [DT](https://rstudio.github.io/DT/) | Interactive data tables | Xie Y et al. |
-| [pheatmap](https://cran.r-project.org/package=pheatmap) | Hierarchical heatmap | Kolde R |
-| [ggbeeswarm](https://github.com/eclarke/ggbeeswarm) | Beeswarm plots | Clarke E, Sherrill-Mix S |
-| [colourpicker](https://daattali.com/shiny/colourpicker/) | Color picker widget | Attali D |
-| [RColorBrewer](https://colorbrewer2.org/) | Color palettes | Neuwirth E |
+| Package | Use in this app |
+|---|---|
+| [shiny](https://shiny.posit.co/) | Web application framework |
+| [bslib](https://rstudio.github.io/bslib/) | Bootstrap 5 / Flatly theme |
+| [ggplot2](https://ggplot2.tidyverse.org/) | All plots |
+| [DT](https://rstudio.github.io/DT/) | Interactive data tables |
+| [pheatmap](https://cran.r-project.org/package=pheatmap) | Hierarchical heatmap |
+| [ggbeeswarm](https://github.com/eclarke/ggbeeswarm) | Beeswarm plots (Tab 2 PCA and Tab 4) |
+| [colourpicker](https://daattali.com/shiny/colourpicker/) | Color pickers in Tab 3 |
+| [RColorBrewer](https://colorbrewer2.org/) | RdBu heatmap palette |
 
 ---
 
 ## Author
 
-**Name:** TODO: add name  
-**Email:** TODO: add email  
+**Name:** TODO: add your name  
 **Course:** BF591 — Bioinformatics with R, Boston University  
-**Project type:** Final project — Integrated R Shiny Bioinformatics Application  
-**Repository:** https://github.com/YZversion/APP
+**Project:** Final project — Integrated R Shiny Bioinformatics Application  
+**Repository:** <https://github.com/YZversion/APP>
