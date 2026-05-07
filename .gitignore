@@ -1,0 +1,45 @@
+# R session and workspace files
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# R package/library artifacts
+renv/library/
+renv/staging/
+packrat/lib*/
+packrat/src/
+*.tar.gz
+
+# Shiny/runtime artifacts
+rsconnect/
+shinylog/
+
+# Large downloaded and generated data files
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Keep manually curated lightweight metadata files trackable
+!data/metadata/
+data/metadata/*
+!data/metadata/.gitkeep
+!data/metadata/*.csv
+
+# Results are reproducible outputs unless explicitly promoted into docs
+results/*
+!results/.gitkeep
+
+# Common temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+~$*
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
